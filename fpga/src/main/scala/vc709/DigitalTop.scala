@@ -20,12 +20,6 @@ import sifive.blocks.devices.pinctrl.{BasePin}
 import sifive.fpgashells.shell._
 import sifive.fpgashells.clocks._
 
-object PinGen {
-  def apply(): BasePin = {
-    new BasePin()
-  }
-}
-
 trait HasXilinxVC709PCIe { this: BaseSubsystem =>
   /*** The second clock goes to the PCIe ***/
   val memClkNode = p(ClockInputOverlayKey).last.place(ClockInputDesignInput()).overlayOutput.node

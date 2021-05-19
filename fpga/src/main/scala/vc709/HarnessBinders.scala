@@ -10,7 +10,6 @@ import freechips.rocketchip.tilelink.{TLBundle}
 import sifive.blocks.devices.i2c.{HasPeripheryI2CModuleImp, I2CPort}
 import sifive.blocks.devices.uart.{HasPeripheryUARTModuleImp, UARTPortIO}
 import sifive.blocks.devices.gpio.{HasPeripheryGPIOModuleImp, GPIOPortIO}
-import sifive.fpgashells.devices.xilinx.xilinxvc709pciex1.{HasSystemXilinxVC709PCIeX1ModuleImp, XilinxVC709PCIeX1IO}
 
 import chipyard.{HasHarnessSignalReferences, CanHaveMasterTLMemPort}
 import chipyard.harness.{OverrideHarnessBinder}
