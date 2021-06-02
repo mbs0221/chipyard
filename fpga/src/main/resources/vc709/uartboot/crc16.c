@@ -1,11 +1,3 @@
-/*
- * @,@Author: ,: your name
- * @,@Date: ,: 1970-01-01 08:00:00
- * @,@LastEditTime: ,: 2021-01-30 11:48:26
- * @,@LastEditors: ,: Please set LastEditors
- * @,@Description: ,: In User Settings Edit
- * @,@FilePath: ,: /freedom/bootrom/sdboot/crc16.h
- */
 #include "include/crc16.h"
  
 inline uint16_t crc16_round(uint16_t crc, uint8_t data) {

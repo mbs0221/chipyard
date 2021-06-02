@@ -1,8 +1,8 @@
 #include <stdint.h>
 
-#define CRC16_BITS 12
-#define CRC16_LEN 4096
-#define NUM_BLOCKS 1024
+#define CRC16_BITS 16
+#define CRC16_LEN (1<<CRC16_BITS) // 64KiB
+#define NUM_BLOCKS 64 // 4MiB
 #define NAK 0x15
 #define ACK 0x06
 
