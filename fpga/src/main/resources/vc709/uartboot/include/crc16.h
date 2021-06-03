@@ -1,10 +1,10 @@
 #include <stdint.h>
 
-#define CRC16_BITS 16
-#define CRC16_LEN (1<<CRC16_BITS) // 64KiB
-#define NUM_BLOCKS 64 // 4MiB
+#define CRC16_BITS 12
+#define CRC16_LEN 4096 // 4KB
 #define NAK 0x15
 #define ACK 0x06
+#define TIMEOUT 30
 
 uint16_t crc16_round(uint16_t crc, uint8_t data);
 uint16_t crc16(uint8_t *q);

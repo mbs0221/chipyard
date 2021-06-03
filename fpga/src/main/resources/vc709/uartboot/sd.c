@@ -173,7 +173,7 @@ static int copy(void)
 		}
 
 		// crc16 512-bytes
-		crc = crc16(q);
+		uint16_t crc = crc16(q, 512);
 
 		// expected crc16
 		uint16_t crc_exp = ((uint16_t)sd_dummy() << 8);

@@ -124,47 +124,51 @@ void write_cmd(cmd_t cmd)
     uart_send(serial_fd, (uint8_t *)&cmd, sizeof(cmd));
 }
 
-size_t write_block(int serial_fd, char *buf)
+void write_block(int serial_fd, char *buf)
 {
-    size_t retry = -1;
+    int retry = -1;
     char cmd = NAK;
     
     // calculate crc
     uint16_t crc_exp = crc16((uint8_t *)buf);
     do {
-        retry++;
+        if(retry++ == TIMEOUT) {
+            printf("TIMEOUT\n");
+            exit(0);
+        }
+    
         // send file and crc
         uart_send(serial_fd, (uint8_t *)buf, CRC16_LEN);
         uart_send(serial_fd, (uint8_t *)&crc_exp, 2);
         // ACK/NAK
         uart_recv(serial_fd, (uint8_t *)&cmd, sizeof(char));
     } while (cmd != ACK);
-
-    return retry;
 }
 
-char bar[101];
+#define BYTE (1)
+#define KB (1 << 10)
+#define MB (KB << 10)
 
-void update_progress(char *bar, uint8_t p){
-
-    bar[p] = '#';
-    bar[p + 1] = '\0';
-
-    printf("send blocks: [%-100s][%3d%%]\r", bar, p);
-}
-
-size_t write_batch(int serial_id, char *buf, size_t num_blocks){
-    
-    size_t retry = 0;
-
-    for (size_t i = 0; i < num_blocks; i++) {
-        retry += write_block(serial_fd, buf + i * CRC16_LEN);
-        update_progress(bar, i * 100 / num_blocks);
+char* format(size_t size)
+{
+    char *buf = (char*)malloc(sizeof(char)*11);
+    if ((size/MB) > 0) {
+        sprintf(buf, "%.2f MB", 1.0*size/MB);
+    } else if ((size/KB) > 0) {
+        sprintf(buf, "%.2f KB", 1.0*size/KB);
+    } else {
+        sprintf(buf, "%.2f B", 1.0*size);
     }
-    
-    printf("\n");
-    
-    return retry;
+    return buf;
+}
+
+void update_progress(size_t n_bytes, long len)
+{
+    char *cur_size = format(n_bytes);
+    char *total = format(len);
+    printf("upload %s, total %s.%c", cur_size, total, n_bytes==len?'\n':'\r');
+    free(total);
+    free(cur_size);
 }
 
 void write_header(uint8_t *addr, long len)
@@ -177,48 +181,36 @@ void write_header(uint8_t *addr, long len)
     uart_send(serial_fd, (uint8_t *)&package, sizeof(package));
 }
 
-void write_file(FILE *fd)
+void write_file(FILE *fd, long len)
 {
     // send file
-    size_t n_blocks = 0;
     size_t n_bytes = 0;
     size_t size;
-    size_t retry = 0;
 
-    char *buf = (char *)malloc(sizeof(char) * CRC16_LEN * NUM_BLOCKS);
+    char *buf = (char *)malloc(sizeof(char) * CRC16_LEN);
 
     do {
-        size = fread(buf, CRC16_LEN, NUM_BLOCKS, fd);
-        if (size == -1) {
-            perror("read");
-            exit(1);
-        }
-        if (size > 0) {
-            retry += write_batch(serial_fd, buf, size);
-            n_blocks += size;
-            n_bytes += size * CRC16_LEN;
-            printf("send %5ld blocks, retry %5ld times.\n", size, retry);
-        }
-    } while (size != 0);
-
-    if (size == 0) {
-        memset(buf, 0, CRC16_LEN * NUM_BLOCKS);
-        fseek(fd, CRC16_LEN * n_blocks, SEEK_SET);
         size = fread(buf, sizeof(char), CRC16_LEN, fd);
         if (size == -1) {
             perror("read");
             exit(1);
         }
         if (size > 0) {
-            retry += write_block(serial_fd, buf);
-            n_blocks += 1;
+            if (size < CRC16_LEN) {
+                memset(buf+size, 0, CRC16_LEN - size);
+            }
+            write_block(serial_fd, buf);
             n_bytes += size;
-            printf("send %ld bytes, retry %ld times.\n", size, retry);
+            update_progress(n_bytes, len);
         }
-    }
-    free(buf);
+    } while (size != 0);
 
-    printf("send %ld blocks, %ld bytes, retry %ld times in total\n", n_blocks, n_bytes, retry);
+    free(buf);
+}
+
+void write_footer(uint32_t time)
+{
+    uart_send(serial_fd, (uint8_t *)&time, sizeof(time));
 }
 
 int send_file(char *address, char *filename)
@@ -249,7 +241,7 @@ int send_file(char *address, char *filename)
     // send cmd, header and file
     write_cmd(UART_CMD_TRANSFER);
     write_header(addr, len);
-    write_file(fd);
+    write_file(fd, len);
     
     fclose(fd);
     
@@ -277,6 +269,9 @@ int main(int argc, char *argv[])
     } else {
         // ./serial tty
         write_cmd(UART_CMD_END);
+        uint32_t time;
+        sscanf(argv[2], "%d", &time);
+        write_footer(time);
     }
 
     close(serial_fd);

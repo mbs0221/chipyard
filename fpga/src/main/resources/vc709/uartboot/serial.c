@@ -1,6 +1,6 @@
 #include "./include/serial.h"
 
-static int read_block(uint8_t *q)
+static void read_block(uint8_t *q)
 {
     int retry = -1;
     char cmd = NAK;
@@ -16,25 +16,27 @@ static int read_block(uint8_t *q)
         cmd = ((crc16(p) == crc_exp) ? ACK : NAK);
         kwrite(&cmd, 1);
     } while (cmd != ACK);
-
-    return retry;
 }
 
-static int read(uint8_t *addr, long len)
+static void read(uint8_t *addr, long len)
 {
     uint8_t *p = addr;
-    int retry = 0;
     int n_blocks = len >> CRC16_BITS;
     n_blocks += (((len % CRC16_LEN) == 0)? 0 : 1);
     for (int i = 0; i < n_blocks; i++, p += CRC16_LEN) {
-		retry += read_block(p);
+		read_block(p);
     }
-    return retry;
+}
+
+static void wait(uint32_t t)
+{
+    while(t-- > 0);
 }
 
 static void session(void)
 {
     cmd_t cmd;
+    uint32_t time;
     while (cmd != UART_CMD_END) {
         kread((char *)&cmd, sizeof(cmd_t));
         if (cmd == UART_CMD_TRANSFER) {
@@ -43,6 +45,8 @@ static void session(void)
             read(package.addr, package.len);
         }
     }
+    kread((char*)&time, sizeof(time));
+    wait(time);
 }
 
 int main(void)
