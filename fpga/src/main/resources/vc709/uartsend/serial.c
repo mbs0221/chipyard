@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include <time.h>
 
 #include "../uartboot/include/serial.h"
 
@@ -124,6 +125,33 @@ void write_cmd(cmd_t cmd)
     uart_send(serial_fd, (uint8_t *)&cmd, sizeof(cmd));
 }
 
+#ifdef TIMEOUT
+    #undef TIMEOUT
+    #define TIMEOUT 5
+#endif
+
+#define SECOND      CLOCKS_PER_SEC
+#define MINITE      (60*SECOND)
+#define HOUR        (60*MINITE)
+
+#define SPEED(n,t) (((double)n)/(t/SECOND))
+
+typedef struct {
+    /* data */
+    uint8_t h, m, s;
+    uint8_t mili;
+} u_time;
+
+u_time create_time(clock_t t){
+    u_time u = {
+        .h = (t/HOUR%24),
+        .m = (t/MINITE%60),
+        .s = (t/SECOND%60),
+        .mili = (t%SECOND)
+    };
+    return u;
+}
+
 void write_block(int serial_fd, char *buf)
 {
     int retry = -1;
@@ -146,29 +174,31 @@ void write_block(int serial_fd, char *buf)
 }
 
 #define BYTE (1)
-#define KB (1 << 10)
+#define KB (BYTE << 10)
 #define MB (KB << 10)
 
-char* format(size_t size)
-{
-    char *buf = (char*)malloc(sizeof(char)*11);
-    if ((size/MB) > 0) {
-        sprintf(buf, "%.2f MB", 1.0*size/MB);
-    } else if ((size/KB) > 0) {
-        sprintf(buf, "%.2f KB", 1.0*size/KB);
-    } else {
-        sprintf(buf, "%.2f B", 1.0*size);
-    }
-    return buf;
-}
+#define Mux(cond, t, f) ((cond) ? (t) : (f))
 
-void update_progress(size_t n_bytes, long len)
+#define UNIT(size)       Mux(size>=MB, ((double)size/MB), Mux(size>=KB, ((double)size/KB), ((double)size)))
+#define FMT_SIZE(size)   Mux(size>=MB, "%.2f MB", Mux(size>=KB, "%.2f KB", "%.2f B"))
+
+void update_progress(size_t size, long total, clock_t time)
 {
-    char *cur_size = format(n_bytes);
-    char *total = format(len);
-    printf("upload %s, total %s.%c", cur_size, total, n_bytes==len?'\n':'\r');
-    free(total);
-    free(cur_size);
+    char str[128];
+    u_time t = create_time(time);
+    int speed = SPEED(size, time);
+
+    int i = 0;
+    i  = sprintf(str, "upload: ");
+    i += sprintf(str + i, FMT_SIZE(size), UNIT(size));
+    i += sprintf(str + i, ", total: ");
+    i += sprintf(str + i, FMT_SIZE(total), UNIT(total));
+    i += sprintf(str + i, ", speed: ");
+    i += sprintf(str + i, FMT_SIZE(speed), UNIT(speed));
+    i += sprintf(str + i, "/s, time elapsed: %02d:%02d:%02d.%03d", t.h, t.m, t.s, t.mili);
+    i += sprintf(str + i, "%c", Mux(size==total, '\n', '\r'));
+
+    printf("%s", str);
 }
 
 void write_header(uint8_t *addr, long len)
@@ -186,9 +216,10 @@ void write_file(FILE *fd, long len)
     // send file
     size_t n_bytes = 0;
     size_t size;
+    clock_t start, total;
 
     char *buf = (char *)malloc(sizeof(char) * CRC16_LEN);
-
+    start = clock();
     do {
         size = fread(buf, sizeof(char), CRC16_LEN, fd);
         if (size == -1) {
@@ -200,8 +231,9 @@ void write_file(FILE *fd, long len)
                 memset(buf+size, 0, CRC16_LEN - size);
             }
             write_block(serial_fd, buf);
+            total = clock() - start;
             n_bytes += size;
-            update_progress(n_bytes, len);
+            update_progress(n_bytes, len, total);
         }
     } while (size != 0);
 
