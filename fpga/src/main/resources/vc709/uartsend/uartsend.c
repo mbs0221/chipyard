@@ -16,7 +16,7 @@ void write_cmd(cmd_t cmd)
     uart_send(serial_fd, (uint8_t *)&cmd, sizeof(cmd));
 }
 
-void write_block(int serial_fd, char *buf)
+int write_block(int serial_fd, char *buf)
 {
     int retry = -1;
     char cmd = NAK;
@@ -35,18 +35,18 @@ void write_block(int serial_fd, char *buf)
         // ACK/NAK
         uart_recv(serial_fd, (uint8_t *)&cmd, sizeof(char));
     } while (cmd != ACK);
+
+    return retry;
 }
 
-void update_progress(long size, long total, double duration)
+void update_progress(long size, long total, int retry)
 {
     u_size uploaded = format_size(size);
     u_size total_size = format_size(total);
-    // u_size speed = format_size(size/duration);
-    // u_time time = format_time(duration);
 
-    printf("upload: %4.2f %s/%4.2f %s%c",
+    printf("upload: %4.2f %s/%4.2f %s retry %d times.%c",
             uploaded.value, uploaded.unit,
-            total_size.value, total_size.unit,
+            total_size.value, total_size.unit, retry,
             Mux(size==total, '\n', '\r'));
 }
 
@@ -63,6 +63,7 @@ void write_header(uint8_t *addr, long len)
 void write_file(FILE *fd, long len)
 {
     // send file
+    int retry = 0;
     size_t n_bytes = 0;
     size_t size;
 
@@ -79,9 +80,9 @@ void write_file(FILE *fd, long len)
                 memset(buf+size, 0, CRC16_LEN - size);
             }
             n_bytes += size;
-            write_block(serial_fd, buf);
+            retry += write_block(serial_fd, buf);
             clock_t end = clock();
-            update_progress(n_bytes, len, (double)(end - start)/CLOCKS_PER_SEC);
+            update_progress(n_bytes, len, retry);
         }
     } while (size != 0);
 

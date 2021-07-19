@@ -21,7 +21,7 @@ import chipyard.fpga.vcu118.{WithUARTIOPassthrough, WithTLIOPassthrough, WithFPG
 import chipyard.fpga.vcu118.bringup.{WithI2CIOPassthrough, WithGPIOIOPassthrough}
 
 class WithDefaultPeripherals extends Config((site, here, up) => {
-  case PeripheryUARTKey => List(UARTParams(address = BigInt(0x64000000L), nTxEntries = 1024, nRxEntries = 1024))
+  case PeripheryUARTKey => List(UARTParams(address = BigInt(0x64000000L), initBaudRate=BigInt(921600)))
   case PeripheryGPIOKey => List(GPIOParams(address = BigInt(0x64002000L), width = 21))
   case PeripheryI2CKey => List(I2CParams(address = BigInt(0x64005000L)))
 })
@@ -53,11 +53,11 @@ class WithVC709Tweaks extends Config(
   new WithDefaultPeripherals ++
   new chipyard.config.WithTLBackingMemory ++ // use TL backing memory
   new WithSystemModifications ++ // setup busses, use uart bootrom, setup ext. mem. size
-  // new sha3.WithSha3Accel ++                                // add SHA3 rocc accelerator
+  new sha3.WithSha3Accel ++                                // add SHA3 rocc accelerator
   new chipyard.config.WithNoDebug ++ // remove debug module
-  // new chipyard.example.WithInitZero(0x88000000L, 0x1000L) ++   // add InitZero
-  // new chipyard.example.WithGCD(useAXI4=false, useBlackBox=false) ++          // Use GCD Chisel, connect Tilelink
-  // new freechips.rocketchip.subsystem.WithNBreakpoints(2) ++
+  new chipyard.example.WithInitZero(0x88000000L, 0x1000L) ++   // add InitZero
+  new chipyard.example.WithGCD(useAXI4=false, useBlackBox=false) ++          // Use GCD Chisel, connect Tilelink
+  new freechips.rocketchip.subsystem.WithNBreakpoints(2) ++
   new freechips.rocketchip.subsystem.WithoutTLMonitors ++
   new freechips.rocketchip.subsystem.WithNMemoryChannels(1))
 
@@ -68,7 +68,7 @@ class WithVC709System extends Config((site, here, up) => {
 class RocketVC709Config extends Config(
   new WithVC709System ++
   new WithVC709Tweaks ++
-  new chipyard.RocketConfig)
+  new chipyard.QuadRocketConfig)
 // DOC include end: AbstractVC709 and Rocket
 
 class SmallBoomConfig extends Config(

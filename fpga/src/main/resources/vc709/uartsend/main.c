@@ -1,8 +1,7 @@
 #include "uartsend.h"
+#include "string.h"
 
 extern int serial_fd;
-
-char msg[256];
 
 int main(int argc, char *argv[])
 {
@@ -16,16 +15,13 @@ int main(int argc, char *argv[])
     }
     printf("open serial successfully.\n");
     
-    if (argc == 4) {
-        // ./serial tty, address, filename
+    if (argc == 9) {
         send_file(argv[2], argv[3]);
-        printf("transfer finished.\n");
-    } else {
-        // ./serial tty
+        send_file(argv[4], argv[5]);
+        send_file(argv[6], argv[7]);
         write_cmd(UART_CMD_END);
-        uint32_t time;
-        sscanf(argv[2], "%d", &time);
-        write_footer(time);
+        write_footer(atoi(argv[8]));
+        printf("upload finished.\n");
     }
 
     close(serial_fd);

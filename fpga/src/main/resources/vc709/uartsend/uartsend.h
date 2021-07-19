@@ -10,8 +10,8 @@
 
 void readline(char *p);
 void write_cmd(cmd_t cmd);
-void write_block(int serial_fd, char *buf);
-void update_progress(long size, long total, double duration);
+int write_block(int serial_fd, char *buf);
+void update_progress(long size, long total, int retry);
 void write_header(uint8_t *addr, long len);
 void write_file(FILE *fd, long len);
 void write_footer(uint32_t time);
